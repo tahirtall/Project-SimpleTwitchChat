@@ -3,4 +3,6 @@ Personal Project that I am hoping to create my personal twitch chat that reads t
 
 Initiated a new repo, and copied my current code for twitchChat into this repository.
 
+twitchChat v1.0 -> Currently experiences issues closing the application.
+
 

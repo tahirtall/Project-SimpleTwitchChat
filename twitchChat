@@ -1,0 +1,78 @@
+#include <wx/wx.h>
+#include <wx/dcbuffer.h>
+
+class MyCanvas : public wxWindow
+{
+public:
+	MyCanvas(wxWindow* parent)
+		: wxWindow(parent, wxID_EXIT, wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE)
+
+	{
+		SetBackgroundStyle(wxBG_STYLE_PAINT);
+		Bind(wxEVT_PAINT, &MyCanvas::OnPaint, this);
+	}
+private:
+	void OnPaint(wxPaintEvent&)
+	{
+		// Gets the client size without taking menu, title bar, and scrollbar into consideration   
+		wxSize cliSize = GetClientSize();
+
+		// Used AutoBufferedPaintDC instead of wxBufferedPaintDC to avoid unnecessery buffering to avoid flickering.
+		wxAutoBufferedPaintDC dc(this);
+
+		// Assigned drawing tools(Pen and Brush) to dc.
+		dc.SetPen(*wxRED_PEN);
+		dc.SetBrush(*wxBLACK_BRUSH);
+
+		// This is where the drawing itself happens.
+		dc.DrawLine(wxLeftOf, wxAbove, cliSize.GetWidth() - wxRightOf, cliSize.GetHeight() - wxBelow);
+		dc.DrawLine(cliSize.GetWidth() - wxRightOf, wxAbove, wxLeftOf, cliSize.GetHeight() - wxBelow);
+
+		// After resizing, client gets refreshed and updated to have old drawing get replaced by the new one after the resize.
+		Refresh();
+		Update();
+	}
+};
+
+// Initializing a frame to draw on.
+class MyFrame : public wxFrame
+{
+public:
+	MyFrame()
+		: wxFrame(NULL, wxID_ANY, _("Resizable X"), wxDefaultPosition, wxSize(500, 525))
+	{
+		wxBoxSizer* bSizer = new wxBoxSizer(wxVERTICAL);
+
+		bSizer->Add(new MyCanvas(this), 1, wxEXPAND);
+		SetSizer(bSizer);
+
+		Bind(wxEVT_CLOSE_WINDOW, &MyFrame::OnClose, this);
+
+	}
+
+	// Done to close the window when pressed closing the app. However, program won't show down when trying to exit.
+	void OnClose(wxCloseEvent&)
+	{
+		Close();
+		Destroy();
+	}
+};
+
+
+/**** MyApp ****/
+class MyApp : public wxApp
+{
+public:
+	MyFrame* frame;
+
+	virtual bool OnInit()
+	{
+		frame = new MyFrame();
+		frame->Show();
+		return true;
+
+	}
+};
+
+
+IMPLEMENT_APP(MyApp)

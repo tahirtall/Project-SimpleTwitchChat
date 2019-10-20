@@ -22,7 +22,7 @@ private:
 
 		// Assigned drawing tools(Pen and Brush) to dc.
 		dc.SetPen(*wxRED_PEN);
-		dc.SetBrush(*wxBLACK_BRUSH);
+		dc.SetBrush(*wxWHITE_BRUSH);
 
 		// This is where the drawing itself happens.
 		dc.DrawLine(wxLeftOf, wxAbove, cliSize.GetWidth() - wxRightOf, cliSize.GetHeight() - wxBelow);
@@ -32,6 +32,7 @@ private:
 		Refresh();
 		Update();
 	}
+
 };
 
 // Initializing a frame to draw on.
@@ -41,20 +42,13 @@ public:
 	MyFrame()
 		: wxFrame(NULL, wxID_ANY, _("Resizable X"), wxDefaultPosition, wxSize(500, 525))
 	{
+		wxFrame * frame = new wxFrame();
+
 		wxBoxSizer* bSizer = new wxBoxSizer(wxVERTICAL);
-
 		bSizer->Add(new MyCanvas(this), 1, wxEXPAND);
-		SetSizer(bSizer);
+		this->SetSizer(bSizer);
+		this->SetAutoLayout(true);
 
-		Bind(wxEVT_CLOSE_WINDOW, &MyFrame::OnClose, this);
-
-	}
-
-	// Done to close the window when pressed closing the app. However, program won't show down when trying to exit.
-	void OnClose(wxCloseEvent&)
-	{
-		Close();
-		Destroy();
 	}
 };
 
@@ -70,7 +64,6 @@ public:
 		frame = new MyFrame();
 		frame->Show();
 		return true;
-
 	}
 };
 

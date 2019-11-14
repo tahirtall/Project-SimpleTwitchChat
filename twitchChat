@@ -1,71 +1,208 @@
-#include <wx/wx.h>
-#include <wx/dcbuffer.h>
+#include "wx/wx.h"
+#include "wx/artprov.h"
+#include "wx/notifmsg.h"
+#include "wx/settings.h"
+#include "wx/webview.h"
+#include "wx/webviewarchivehandler.h"
+#include "wx/webviewfshandler.h"
+#include "wx/textctrl.h"
+#include "wx/event.h"
 
-class MyCanvas : public wxWindow
+
+class WebApp:public wxApp
 {
 public:
-	MyCanvas(wxWindow* parent)
-		: wxWindow(parent, wxID_EXIT, wxDefaultPosition, wxDefaultSize, wxFULL_REPAINT_ON_RESIZE)
-
+	WebApp() :
+		m_url("https://www.twitch.tv/popout/crownz46/dashboard/live/chat")
 	{
-		SetBackgroundStyle(wxBG_STYLE_PAINT);
-		Bind(wxEVT_PAINT, &MyCanvas::OnPaint, this);
 	}
+
+	virtual bool OnInit() wxOVERRIDE;
+
 private:
-	void OnPaint(wxPaintEvent&)
-	{
-		// Gets the client size without taking menu, title bar, and scrollbar into consideration   
-		wxSize cliSize = GetClientSize();
-
-		// Used AutoBufferedPaintDC instead of wxBufferedPaintDC to avoid unnecessery buffering to avoid flickering.
-		wxAutoBufferedPaintDC dc(this);
-
-		// Assigned drawing tools(Pen and Brush) to dc.
-		dc.SetPen(*wxRED_PEN);
-		dc.SetBrush(*wxWHITE_BRUSH);
-
-		// This is where the drawing itself happens.
-		dc.DrawLine(wxLeftOf, wxAbove, cliSize.GetWidth() - wxRightOf, cliSize.GetHeight() - wxBelow);
-		dc.DrawLine(cliSize.GetWidth() - wxRightOf, wxAbove, wxLeftOf, cliSize.GetHeight() - wxBelow);
-
-		// After resizing, client gets refreshed and updated to have old drawing get replaced by the new one after the resize.
-		Refresh();
-		Update();
-	}
-
+	wxString m_url;
 };
 
-// Initializing a frame to draw on.
-class MyFrame : public wxFrame
+class WebFrame : public wxFrame
 {
 public:
-	MyFrame()
-		: wxFrame(NULL, wxID_ANY, _("Resizable X"), wxDefaultPosition, wxSize(500, 525))
-	{
-		wxFrame * frame = new wxFrame();
+	WebFrame(const wxString& url);
+	virtual ~WebFrame();
 
-		wxBoxSizer* bSizer = new wxBoxSizer(wxVERTICAL);
-		bSizer->Add(new MyCanvas(this), 1, wxEXPAND);
-		this->SetSizer(bSizer);
-		this->SetAutoLayout(true);
+public:
 
-	}
+	void UpdateState();
+	void OnIdle(wxIdleEvent& event);
+
+	void OnScrollLineUp(wxCommandEvent&) {m_browser->LineUp();}
+	void OnScrollLineDown(wxCommandEvent&) {m_browser->LineDown();}
+	void OnScrollPageUp(wxCommandEvent&) {m_browser->PageUp();}
+	void OnScrollPageDown(wxCommandEvent&) {m_browser->PageDown();}
+	void OnToolsClicked(wxCommandEvent& event);
+
+	void OnExit(wxCommandEvent& event);
+	void OnCopy(wxCommandEvent& event);
+	void OnCut(wxCommandEvent& event);
+	void OnPaste(wxCommandEvent& event);
+	void OnSelectAll(wxCommandEvent& event);
+	void OnCredits(wxCommandEvent& event);
+	void OnAbout(wxCommandEvent& event);
+
+private:
+
+	wxTextCtrl* m_url;
+	wxWebView* m_browser;
+
+	wxToolBar* m_toolbar;
+	wxToolBarToolBase* m_toolbar_stop;
+
+	// Menu Bar
+	wxMenuBar* menuBar;
+	wxMenu* fileMenu;
+	wxMenuItem* m_file_exit;
+	wxMenu* editMenu;
+	wxMenuItem* m_edit_cut;
+	wxMenuItem* m_edit_copy;
+	wxMenuItem* m_edit_paste;
+	wxMenuItem* m_edit_selectall;
+	wxMenuItem* m_selectall;
+	wxMenu* helpMenu;
+	wxMenuItem* m_help_help;
+	wxMenuItem* m_help_credits;
+	wxMenuItem* m_help_menuabout;
+	wxMenuItem* m_scroll_line_up;
+	wxMenuItem* m_scroll_line_down;
+	wxMenuItem* m_scroll_page_up;
+	wxMenuItem* m_scroll_page_down;
+
+	// Default location
+	wxString uri_home;
+	wxString uri_help;
+	wxString uri_about;
 };
 
-
-/**** MyApp ****/
-class MyApp : public wxApp
+class SourceViewDialog : public wxDialog
 {
 public:
-	MyFrame* frame;
-
-	virtual bool OnInit()
-	{
-		frame = new MyFrame();
-		frame->Show();
-		return true;
-	}
+	SourceViewDialog(wxWindow* parent, wxString source);
 };
 
+bool WebApp::OnInit()
+{
+	if (!wxApp::OnInit())
+		return false;
 
-IMPLEMENT_APP(MyApp)
+	WebFrame* frame = new WebFrame(m_url);
+	frame->Show();
+
+	return true;
+	}
+
+WebFrame::WebFrame(const wxString& url)
+	:wxFrame(NULL, wxID_ANY, "SimpleTwitchChat")
+{
+	SetTitle("SimpleTwitchChat");
+
+	wxBoxSizer* topsizer = new wxBoxSizer(wxVERTICAL);
+
+	// Creating the webview
+	m_browser = wxWebView::New(this, wxID_ANY, url);
+	topsizer->Add(m_browser, wxSizerFlags().Expand().Proportion(1));
+
+	SetSizer(topsizer);
+	// Set a more sensible size for web browsing
+	SetSize(wxSize(800, 600));
+
+	// Create a log window
+	new wxLogWindow(this, _("Logging"), true, false);
+
+	// Create the application menubar and the menu items.
+	menuBar = new wxMenuBar;
+
+	// File Menu
+	fileMenu = new wxMenu;
+	m_file_exit = fileMenu->Append(wxID_ANY, _("Exit"));
+
+	// Edit Menu
+	editMenu = new wxMenu;
+	m_edit_copy = editMenu->Append(wxID_ANY, _("Copy"));
+	m_edit_cut = editMenu->Append(wxID_ANY, _("Cut"));
+	m_edit_paste = editMenu->Append(wxID_ANY, _("Paste"));
+	editMenu->AppendSeparator();
+	m_edit_selectall = editMenu->Append(wxID_ANY, _("Select All"));
+
+	// Help Menu
+	helpMenu = new wxMenu;
+	m_help_help = helpMenu->Append(wxID_ANY, _("Help"));
+	m_help_credits = helpMenu->Append(wxID_ANY, _("Credits"));
+	m_help_menuabout = helpMenu->Append(wxID_ANY, _("About"));
+
+	menuBar->Append(fileMenu, _("&File"));
+	menuBar->Append(editMenu, _("&Edit"));
+	menuBar->Append(helpMenu, _("&Help"));
+	SetMenuBar(menuBar);
+
+	CreateStatusBar();
+	GetStatusBar()->SetStatusText(_("Ready"));
+	
+	Bind(wxEVT_IDLE, &WebFrame::OnIdle, this);
+
+	// Connect the menu events
+	Bind(wxEVT_MENU, &WebFrame::OnExit, this, m_file_exit->GetId());
+	Bind(wxEVT_MENU, &WebFrame::OnCopy, this, m_edit_copy->GetId());
+	Bind(wxEVT_MENU, &WebFrame::OnCut, this, m_edit_cut->GetId());
+	Bind(wxEVT_MENU, &WebFrame::OnPaste, this, m_edit_paste->GetId());
+	Bind(wxEVT_MENU, &WebFrame::OnSelectAll, this, m_edit_selectall->GetId());
+	Bind(wxEVT_MENU, &WebFrame::OnHelp, this, m_help_help->GetId());
+	Bind(wxEVT_MENU, &WebFrame::OnCredits, this, m_help_credits->GetId());
+	Bind(wxEVT_MENU, &WebFrame::OnAbout, this, m_help_menuabout->GetId());
+}
+
+	void WebFrame::UpdateState()
+	{
+		SetTitle(m_browser->GetCurrentTitle());
+		m_url->SetValue(m_browser->GetCurrentURL());
+
+	}
+	void WebFrame::OnExit(wxCommandEvent& event) {Close();}
+
+	void WebFrame::OnIdle(wxIdleEvent& WXUNUSED(event))
+	{
+		if (m_browser->IsBusy())
+		{
+			wxSetCursor(wxCURSOR_ARROWWAIT);
+			m_toolbar->EnableTool(m_toolbar_stop->GetId(), true);
+		}
+		else
+		{
+			wxSetCursor(wxNullCursor);
+			m_toolbar->EnableTool(m_toolbar_stop->GetId(), false);
+		}
+	}
+
+
+	void WebFrame::OnCopy(wxCommandEvent& event) {
+		m_browser->Copy();
+	}
+	void WebFrame::OnCut(wxCommandEvent& event) {
+		m_browser->Cut();
+	}
+	void WebFrame::OnPaste(wxCommandEvent& event) {
+		m_browser->Paste();
+	}
+	void WebFrame::OnSelectAll(wxCommandEvent& event) {
+		m_browser->SelectAll();
+	}
+
+	void WebFrame::OnToolsClicked(wxCommandEvent& WXUNUSED(event))
+	{
+		if (m_browser->GetCurrentURL() == "")
+			return;
+
+		m_edit_cut->Enable(m_browser->CanCut());
+		m_edit_copy->Enable(m_browser->CanCopy());
+		m_edit_paste->Enable(m_browser->CanPaste());
+
+		wxPoint position = ScreenToClient(wxGetMousePosition());
+	}
+
